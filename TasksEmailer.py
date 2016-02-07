@@ -17,7 +17,7 @@ try:
 except ImportError:
     flags = None
 
-SCOPES = 'https://www.googleapis.com/auth/tasks.readonly https://www.googleapis.com/auth/gmail.send'
+SCOPES = 'https://www.googleapis.com/auth/tasks.readonly  https://www.googleapis.com/auth/gmail.send'
 CLIENT_SECRET_FILE = 'client_secret.json'
 APPLICATION_NAME = 'Google Tasks Emailer'
 
@@ -131,7 +131,10 @@ def create_email(body):
     message["to"] = "sfirrincieli@gmail.com"
     message["from"] = "sfirincieli@gmail.com"
     message["subject"] = subject
-    return {"raw": str(base64.b64encode(message.as_string()))}
+    utf_encoded_message = message.as_string().encode("utf8")
+    b64_message = base64.b64encode(utf_encoded_message)
+    b64_decoded = b64_message.decode("utf-8")
+    return {"raw": b64_decoded}
 
 
 def send_message(service, user_id, message):
