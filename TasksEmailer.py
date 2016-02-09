@@ -6,6 +6,8 @@ import calendar
 import base64
 import praw
 import random
+import forecastio
+from datetime import timedelta
 from email.mime.text import MIMEText
 from apiclient import discovery
 import oauth2client
@@ -39,6 +41,8 @@ def get_credentials():
     credential_dir = os.path.join(home_dir, '.credentials')
     if not os.path.exists(credential_dir):
         os.makedirs(credential_dir)
+
+    ## Change this to tasks-emailer at some point
     credential_path = os.path.join(credential_dir,
                                    'tasks-python-quickstart.json')
 
@@ -94,7 +98,7 @@ def get_current_tasks(service):
 def aww_image():
     # Returns a list with the url, reddit url, title, and score
     # Of a random top 30 reddit.com/r/aww post that is a jpg
-    reddit = praw.Reddit(user_agent="TasksEmailer")
+    reddit = praw.Reddit(user_agent="TasksEmailer by /u/sj-f")
     top_aww = reddit.get_subreddit("aww").get_top_from_day(limit=30)
     post_options = []
     for post in top_aww:
@@ -105,8 +109,42 @@ def aww_image():
             post_info.append(post.title)
             post_info.append(post.score)
             post_options.append(post_info)
-    print(len(post_options))
     return random.choice(post_options)
+
+def weather_string(hour_data):
+    """
+    :param hour_data: a forecast.io data point
+    :return: a nicely formatted string representing the hour's weather
+    """
+    output = ""
+    est_time = hour_data.time - datetime.timedelta(hours=5)
+    # Possibly unnecessary hacking to get the hour times how I like them
+    hour_int = int(est_time.strftime("%I"))
+    hour_ampm = est_time.strftime("%p").lower()[0]
+    hour_str = str(hour_int) + hour_ampm
+    hour_str = "{:>3}".format(hour_str)
+    return "<li>" + hour_str + " - " + hour_data.summary + " - " + str(hour_data.temperature) + "</li>\n"
+
+
+def weather():
+    """
+    Calls the forecast.io api and returns a nice html string to add to the email
+    """
+    api_file = open("forecastiokey.txt", "r")
+    api_key = api_file.read()
+    api_file.close()
+    lat = 35.9130
+    long = -79.0556
+    forecast = forecastio.load_forecast(api_key, lat, long)
+    weather_msg = "<h3>Weather</h3\n<ul>\n"
+    wanted_hours = [0, 3, 6, 9, 12, 15, 18]
+    hours_away = 0
+    for hour in forecast.hourly().data:
+        if hours_away in wanted_hours:
+            weather_msg += weather_string(hour)
+        hours_away += 1
+    weather_msg += "</ul>"
+    return weather_msg
 
 def create_message(task_list):
     """
@@ -116,10 +154,8 @@ def create_message(task_list):
     today = datetime.date.today()
     aww = aww_image()
     # This sets up the html stuff and embeds the /r/aww image at the top of the message
-    message = '''<!doctype html>\n
-                 <head> </head>
-                 <body> \n <img src=''' + aww[0] + '''</img>
-                 <p><a href="''' + aww[1] + '">' + aww[2] + " - " + str(aww[3]) + "</a>\n"
+    message = '''<!doctype html>\n<head></head><body>\n<img style="max-width:100%" src="''' + aww[0] + '"</img>\
+                 \n<p><a href="''' + aww[1] + '">' + aww[2] + " - " + str(aww[3]) + "</a>\n"
 
     days_of_week = {0: "Today", 1: "Tomorrow", 7: "A week from today"}
     for day in range(2, 7):
@@ -131,9 +167,9 @@ def create_message(task_list):
         # adds a new <h3> tag for the day if necessary
         # This looks like a bit of a mess because of the html tags
         if task[1] < 0 and current_day is None:
-            message += "<h3>Overdue</h3> \n <ul>\n"
+            message += "<h3>Overdue</h3>\n<ul>\n"
             current_day = task[1]
-        elif task[1] is 0 and current_day is not 0:
+        elif task[1] == 0 and current_day != 0:
             if current_day:
                 message += "\n</ul>\n"
             message += "<h3>Today</h3> \n <ul>\n"
@@ -147,7 +183,7 @@ def create_message(task_list):
         if (len(task) > 2):
             message += " (Completed " + str(task[2]) + " days ago)"
         message += "</li>\n"
-    message += "\n</ul>"
+    message += "\n</ul>\n" + weather() + "\n</body>"
     return message
 
 def create_email(body):
@@ -183,7 +219,7 @@ def send_message(service, user_id, message):
     """
 
     message = (service.users().messages().send(userId=user_id, body=message).execute())
-    print('Message Id: %s' % message['id'])
+    # print('Message Id: %s' % message['id'])
     return message
 
 def main():
@@ -198,6 +234,7 @@ def main():
     email_body = create_message(upcoming_tasks)
     email = create_email(email_body)
     send_message(gmail_service, "me", email)
+    # print(weather())
 
 if __name__ == '__main__':
     main()
