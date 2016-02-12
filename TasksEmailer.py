@@ -6,14 +6,30 @@ import calendar
 import base64
 import praw
 import random
+import yweather
 from email.mime.text import MIMEText
 from apiclient import discovery
 import oauth2client
 from oauth2client import client
 from oauth2client import tools
 
-# Change this to your email address
-gmail_address = 'sfirrincieli@gmail.com'
+# Get the widget for your location from URL below and paste into widget_string
+# http://www.wunderground.com/stickers/?MR=1
+widget_string = (
+        '<span style="display: block !important; width: 320px; text-align: '
+        'center; font-family: sans-serif; font-size: 12px;"><a href="http:'
+        '//www.wunderground.com/cgi-bin/findweather/getForecast?query=zmw:'
+        '27514.1.99999&bannertypeclick=wu_clean2day" title="Chapel Hill, North'
+        ' Carolina Weather Forecast" target="_blank"><img src="http://weather'
+        'sticker.wunderground.com/weathersticker/cgi-bin/banner/ban/wxBanner?'
+        'bannertype=wu_clean2day_cond&airportcode=KIGX&ForcedCity=Chapel Hill'
+        '&ForcedState=NC&zip=27514&language=EN" alt="Find more about Weather'
+        ' in Chapel Hill, NC" width="300" /></a><br><a href="http://www.wunder'
+        'ground.com/cgi-bin/findweather/getForecast?query=zmw:27514.1.99999&'
+        'bannertypeclick=wu_clean2day" title="Get latest Weather Forecast upda'
+        'tes" style="font-family: sans-serif; font-size: 12px" target="_blank"'
+        '>Click for weather forecast</a></span>'
+    )
 
 try:
     import argparse
@@ -22,9 +38,8 @@ try:
 except ImportError:
     flags = None
 
-SCOPES = (# 'https://www.googleapis.com/auth/userinfo.email'
-          'https://www.googleapis.com/auth/tasks.readonly  '
-          'https://www.googleapis.com/auth/gmail.send '
+SCOPES = ('https://www.googleapis.com/auth/tasks.readonly  '
+          'https://mail.google.com/ '
           'https://www.googleapis.com/auth/calendar.readonly')
 CLIENT_SECRET_FILE = 'client_secret.json'
 APPLICATION_NAME = 'GTasks Emailer'
@@ -46,9 +61,7 @@ def get_credentials():
     if not os.path.exists(credential_dir):
         os.makedirs(credential_dir)
 
-    ## Change this to tasks-emailer at some point
-    credential_path = os.path.join(credential_dir,
-                                   'tasks-python-quickstart.json')
+    credential_path = os.path.join(credential_dir, 'gtasks-emailer.json')
 
     store = oauth2client.file.Storage(credential_path)
     credentials = store.get()
@@ -73,7 +86,6 @@ def get_current_tasks(service):
     """
     tasks = service.tasks().list(tasklist='@default').execute()
 
-
     time_now = datetime.date.today()
     upcoming_tasks= []
     for task in tasks['items']:
@@ -87,21 +99,24 @@ def get_current_tasks(service):
             item.append(tdelta_due)
 
             if "completed" in task.keys():
-                # If the task has been completed append the number of days since completion
-                completed = time.strptime(task["completed"], "%Y-%m-%dT%H:%M:%S.000Z")
+                # If the task has been completed
+                # append the number of days since completion
+                completed = time.strptime(task['completed'],
+                                          '%Y-%m-%dT%H:%M:%S.000Z')
                 due = time.strptime(task["due"], "%Y-%m-%dT%H:%M:%S.000Z")
-                completed_datetime = datetime.date.fromtimestamp(time.mktime(completed))
+                completed_datetime = datetime.date.fromtimestamp(
+                    time.mktime(completed))
                 tdelta_completed = (time_now - completed_datetime).days
                 item.append(tdelta_completed)
-            # If the item is due in 7 or less days
-            # and the due date has not passed or the task is overdue and not completed
+            # If the item is due in 7 or less days and the due date has not
+            # passed or the task is overdue and not completed
             if item[1] <= 7 and (item[1] >= 0 or len(item) < 3):
                 upcoming_tasks.append(item)
         upcoming_tasks.sort(key=lambda x: x[1])
     return upcoming_tasks
 
 
-def aww_image():
+def get_aww_image():
     # Returns a list with the url, reddit url, title, and score
     # of a random top 30 reddit.com/r/aww post that is a jpg
     reddit = praw.Reddit(user_agent="TasksEmailer by /u/sj-f")
@@ -124,9 +139,9 @@ def create_body(task_list):
     :return: A string message displaying the upcoming tasks in a nice way
     """
     today = datetime.date.today()
-    aww = aww_image()
+    aww = get_aww_image()
     # This sets up the html and embeds the /r/aww image at the top
-    # of the message
+    # of the email body message
     message = ('<!doctype html>\n<head></head><body>\n<img style="max-width'
                ':100%" src="' + aww[0] + '"</img>\n<p><a href="' + aww[1] +
                '">' + aww[2] + ' - ' + str(aww[3]) + '</a>\n')
@@ -157,37 +172,15 @@ def create_body(task_list):
         message += '<li>' + task[0]
         if (len(task) > 2):
             message += ' (Completed)'
-        message += "</li>\n"
-    message += "\n</ul>\n"
+        message += '</li>\n'
+    message += '\n</ul>\n'
     # Adding the weather widget to the end of the body
-    message += (
-        '<span style="display: block !important; width: 320px; text-align: '
-        'center; font-family: sans-serif; font-size: 12px;"><a href="http:'
-        '//www.wunderground.com/cgi-bin/findweather/getForecast?query=zmw:'
-        '27514.1.99999&bannertypeclick=wu_clean2day" title="Chapel Hill, North'
-        ' Carolina Weather Forecast" target="_blank"><img src="http://weather'
-        'sticker.wunderground.com/weathersticker/cgi-bin/banner/ban/wxBanner?'
-        'bannertype=wu_clean2day_cond&airportcode=KIGX&ForcedCity=Chapel Hill'
-        '&ForcedState=NC&zip=27514&language=EN" alt="Find more about Weather'
-        ' in Chapel Hill, NC" width="300" /></a><br><a href="http://www.wunder'
-        'ground.com/cgi-bin/findweather/getForecast?query=zmw:27514.1.99999&'
-        'bannertypeclick=wu_clean2day" title="Get latest Weather Forecast upda'
-        'tes" style="font-family: sans-serif; font-size: 12px" target="_blank"'
-        '>Click for weather forecast</a></span>'
-    )
+    message += widget_string
     message+= '\n</body>'
     return message
 
 
-def get_current_user():
-    """
-    Takes no parameters
-    :return: A string with the current user's email so that this can be
-        put into the TO: and FROM: fields in the email
-    """
-
-
-def create_email(body):
+def create_email(body, address):
     """
     :param body: The body text of the email
     :param address: The eamil address to send to
@@ -197,7 +190,8 @@ def create_email(body):
     subject = 'Tasks for ' + calendar.day_name[today.weekday()] + ', ' \
               + calendar.month_name[today.month] + ' ' + str(today.day)
     message = MIMEText(body, 'html')
-    message['to'] = gmail_address
+
+    message['to'] = address
     message['from'] = 'TasksEmailer'
     message['subject'] = subject
     utf_encoded_message = message.as_string().encode('utf8')
@@ -235,9 +229,11 @@ def main():
     http = credentials.authorize(httplib2.Http())
     tasks_service = discovery.build('tasks', 'v1', http=http)
     gmail_service = discovery.build('gmail', 'v1', http=http)
+    profile = gmail_service.users().getProfile(userId='me').execute()
+    address = profile['emailAddress']
     upcoming_tasks = get_current_tasks(tasks_service)
     email_body = create_body(upcoming_tasks)
-    email = create_email(email_body)
+    email = create_email(email_body, address)
     send_message(gmail_service, 'me', email)
 
 
