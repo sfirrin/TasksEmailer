@@ -1,4 +1,4 @@
-GTasks-Emailer
+TasksEmailer
 =============
 About
 -----
