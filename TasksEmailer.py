@@ -13,7 +13,7 @@ import oauth2client
 from oauth2client import client
 from oauth2client import tools
 
-# Change this variable to your location
+# Change this constant to your location
 LOCATION = 'Chapel Hill, NC'
 
 # Put the tasks you don't want to see in the email to this list
@@ -36,9 +36,9 @@ APPLICATION_NAME = 'GTasks Emailer'
 
 def get_credentials():
     """
-    This function taken directly from the Tasks API quickstart page
-    Gets valid user credentials from storage.
+    This function taken mostly from the Tasks API quickstart page
 
+    Gets valid user credentials from storage.
     If nothing has been stored, or if the stored credentials are invalid,
     the OAuth2 flow is completed to obtain the new credentials.
 
@@ -59,7 +59,7 @@ def get_credentials():
         flow.user_agent = APPLICATION_NAME
         if flags:
             credentials = tools.run_flow(flow, store, flags)
-        else:  # Needed only for compatibility with Python 2.6
+        else:
             credentials = tools.run(flow, store)
         print('Storing credentials to ' + credential_path)
     return credentials
