@@ -14,7 +14,11 @@ from oauth2client import client
 from oauth2client import tools
 
 # Change this variable to your location
-location = 'Chapel Hill, NC'
+LOCATION = 'Chapel Hill, NC'
+
+# Put the tasks you don't want to see in the email to this list
+# Or make it an empty list if you want the email to have all your events
+BLACKLIST = ['INLS 512', 'COMP 401', 'INLS 490', 'COMP 283', 'PHIL 698']
 
 try:
     import argparse
@@ -61,6 +65,51 @@ def get_credentials():
     return credentials
 
 
+def get_address(service):
+    profile = service.users().getProfile(userId='me').execute()
+    return profile['emailAddress']
+
+
+def get_calendar_events(service):
+    # The gcal API requires the 'Z' to indicate UTC
+    now = datetime.datetime.utcnow().isoformat() + 'Z'
+    eventsResult = service.events().list(
+        calendarId='primary', timeMin=now, maxResults=40,
+        singleEvents=True, orderBy='startTime').execute()
+    events = eventsResult.get('items', [])
+    events_output = []
+    if not events:
+        print('No events were found')
+    date_now = datetime.date.today()
+    for event in events:
+        if event.get('summary') not in BLACKLIST:
+            if event.get('start').get('dateTime'):
+                event_datetime = event['start'].get('dateTime')
+                event_datetime = datetime.datetime.strptime(
+                    event_datetime, '%Y-%m-%dT%H:%M:00-05:00')
+                time_str = event_datetime.strftime('%I:%M')
+
+                if time_str[0] == '0':
+                    time_str = time_str[1:]
+                if event_datetime.hour > 12:
+                    time_str += 'p'
+                else:
+                    time_str += 'a'
+
+                event_str = time_str + ' ' + event.get('summary')
+
+            else:
+                event_date = event['start'].get('date')
+                event_datetime = datetime.datetime.strptime(event_date,
+                                                            '%Y-%m-%d')
+                event_str = 'All day - ' + event['summary']
+            tdelta_event = (event_datetime.date() - date_now).days
+            if tdelta_event <= 7:
+                event_list = [event_str, tdelta_event]
+                events_output.append(event_list)
+    return events_output
+
+
 def get_current_tasks(service):
     """
     :param service: The google tasks service
@@ -72,13 +121,13 @@ def get_current_tasks(service):
     tasks = service.tasks().list(tasklist='@default').execute()
 
     time_now = datetime.date.today()
-    upcoming_tasks= []
+    upcoming_tasks = []
     for task in tasks['items']:
         # Create a list for each task
         item = []
         item.append(task['title'])
         if "due" in task.keys():
-            due = time.strptime(task["due"], "%Y-%m-%dT%H:%M:%S.000Z")
+            due = time.strptime(task['due'], '%Y-%m-%dT%H:%M:%S.000Z')
             due_datetime = datetime.date.fromtimestamp(time.mktime(due))
             tdelta_due = (due_datetime - time_now).days
             item.append(tdelta_due)
@@ -88,7 +137,7 @@ def get_current_tasks(service):
                 # append the number of days since completion
                 completed = time.strptime(task['completed'],
                                           '%Y-%m-%dT%H:%M:%S.000Z')
-                due = time.strptime(task["due"], "%Y-%m-%dT%H:%M:%S.000Z")
+                due = time.strptime(task['due'], '%Y-%m-%dT%H:%M:%S.000Z')
                 completed_datetime = datetime.date.fromtimestamp(
                     time.mktime(completed))
                 tdelta_completed = (time_now - completed_datetime).days
@@ -97,7 +146,6 @@ def get_current_tasks(service):
             # passed or the task is overdue and not completed
             if item[1] <= 7 and (item[1] >= 0 or len(item) < 3):
                 upcoming_tasks.append(item)
-        upcoming_tasks.sort(key=lambda x: x[1])
     return upcoming_tasks
 
 
@@ -105,28 +153,32 @@ def get_aww_image():
     # Returns a list with the url, reddit url, title, and score
     # of a random top 30 reddit.com/r/aww post that is a jpg
     reddit = praw.Reddit(user_agent="TasksEmailer by /u/sj-f")
-    top_aww = reddit.get_subreddit("aww").get_top_from_day(limit=30)
+    top_aww = reddit.get_subreddit("aww").get_top_from_day(limit=10)
     post_options = []
+    skip_keywords = ['gifv', 'gallery', 'topic']
     for post in top_aww:
-        if not post.is_self and "jpg" in post.url:
-            post_info = []
-            post_info.append(post.url)
-            post_info.append(post.short_link)
-            post_info.append(post.title)
-            post_info.append(post.score)
+        url = post.url
+        if not post.is_self:
+            # Skip non-imgur and non-jpg posts
+            if 'imgur' not in url or any(kw in url for kw in skip_keywords):
+                continue
+            if 'jpg' not in url:
+                url += '.jpg'
+            post_info = [url, post.short_link, post.title, post.score]
             post_options.append(post_info)
     return random.choice(post_options)
 
 
 def get_weather():
     weather_client = yweather.Client()
-    woeid = weather_client.fetch_woeid(location)
+    woeid = weather_client.fetch_woeid(LOCATION)
     weather = weather_client.fetch_weather(woeid)
     forecasts = weather['forecast']
     forecasts = sorted(forecasts, key=lambda k: k['date'])
     forecasts[0]['day'] = 'Today'
     forecasts[1]['day'] = 'Tomorrow'
-    weather_html = '\n<h4>Weather</p>\n</h4>'
+    weather_html = ('<a href="https://weather.yahoo.com/">'
+                    '\n<h3>Weather</h3></a>')
     for fc in forecasts:
         day_forecast = []
         weather_html += ('\n<li>' + fc['day'] + ': ')
@@ -147,9 +199,11 @@ def create_body(task_list):
     # This sets up the html and embeds the /r/aww image at the top
     # of the email body message
     message = ('<!doctype html>\n<head></head><body>\n<img style="max-width'
-               ':100%" src="' + aww[0] + '"</img>\n<p><a href="' + aww[1] +
-               '">' + aww[2] + ' - ' + str(aww[3]) + '</a>\n')
+               ':100%" src="' + aww[0] + '"</img>\n')
+    reddit_aww_info = ('<p><a href="' + aww[1] + '">' + aww[2] + ' - ' +
+                       str(aww[3]) + '</a>\n')
 
+    # This dict used to convert the 'days away' into string days of the week
     days_of_week = {0: 'Today', 1: 'Tomorrow', 7: 'A week from today'}
     for day in range(2, 7):
         weekday_number = (today + datetime.timedelta(days=day)).weekday()
@@ -172,15 +226,20 @@ def create_body(task_list):
             if current_day is not None:
                 message += '\n</ul>'
             current_day = task[1]
-            message += '<h3>'+ days_of_week[current_day] + '</h3>\n<ul>\n'
-        message += '<li>' + task[0]
-        if (len(task) > 2):
+            message += '<h3>' + days_of_week[current_day] + '</h3>\n<ul>\n'
+        message += '<li>'
+        # Bolds the event / task if 'exam' is in the description
+        if 'exam' in task[0].lower():
+            message += '<strong>' + task[0] + '</strong>'
+        else:
+            message += task[0]
+        if len(task) > 2:
             message += ' (Completed)'
         message += '</li>\n'
     message += '\n</ul>\n'
-    # Adding the weather list to the end of the body
-    message += get_weather()
-    message+= '\n</body>'
+    # Adding the weather list and reddit post info to the end of the body
+    message += get_weather() + '\n'
+    message += reddit_aww_info + '</body>'
     return message
 
 
@@ -226,20 +285,25 @@ def send_message(service, user_id, message):
 
 
 def main():
-    """Creates an email based on a user's upcoming tasks and
+    """Creates an email based on a user's upcoming tasks / events and
        Sends the email to the user from their own gmail address
     """
+    # Connecting to the Google apis for Tasks, Calendar, and Gmail
     credentials = get_credentials()
     http = credentials.authorize(httplib2.Http())
     tasks_service = discovery.build('tasks', 'v1', http=http)
+    gcal_service = discovery.build('calendar', 'v3', http=http)
     gmail_service = discovery.build('gmail', 'v1', http=http)
-    profile = gmail_service.users().getProfile(userId='me').execute()
-    address = profile['emailAddress']
+    # Storing upcoming tasks and events in a list and sorting it by days away
+    upcoming_events = get_calendar_events(gcal_service)
     upcoming_tasks = get_current_tasks(tasks_service)
-    email_body = create_body(upcoming_tasks)
+    tasks_events = sorted(upcoming_tasks + upcoming_events,
+                          key=lambda k: (k[1], k[0]))
+    # Creating the email and sending it off
+    email_body = create_body(tasks_events)
+    address = get_address(gmail_service)
     email = create_email(email_body, address)
     send_message(gmail_service, 'me', email)
-
 
 if __name__ == '__main__':
     main()
