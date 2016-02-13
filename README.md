@@ -2,15 +2,14 @@ Tasks Emailer
 =============
 About
 -----
-Sends an email to yourself with your upcoming Google Tasks and Google Calendar events.
 
 My motivation for making this was that I am good about putting things into my Calendar and Tasks, but would get distracted and forget what is coming up. My solution was to make this script that sends me an email with the tasks and events coming up in the next 7 days. 
 
-To make it a little less of a chore to go through my tasks right when I wake up I had the script embed an image from a top post in reddit.com/r/aww, usually a cute dog or something. And then to add a little more usefulness I used the yweather Python module to tell me the upcoming days' forecast.
+To make it a little less of a chore to go through my tasks right when I wake up I had the script embed an image from a top post in http://reddit.com/r/aww, usually a cute dog or something. And then to add a little more usefulness I used the yweather Python module to tell me the upcoming days' forecast.
 
-I might try and convert this into a webapp or something in the future but for now it is a standalone script that requires a little more effort to set up.
+I might try and convert this into a webapp in the future but for now it is a standalone script that requires a little more effort to set up.
 
-Currently I have the script run on a schedule using PythonAnywhere.com because my computer doesn't run 24/7 so I'm going to give instuctions on how to get that set up below. You could also use another service to run the script on a schedule but you might have to change a couple things.
+Currently I have the script run on a schedule using pythonanywhere.com because my computer doesn't run 24/7 so I'm going to give instuctions on how to get that set up below. You could also use another service or your own computer to run the script on a schedule but you might have to change a couple things.
 
 Setup
 --------
@@ -47,11 +46,11 @@ You're done!
 
 PythonAnywhere Setup
 --------------------
-1. Sign up for a free account and open up a bash console.
+1. Sign up for a free account at http://pythonanywhere.com
 
 2. Go to the 'Files' tab and upload TasksEmailer.py and client_secret.json
 
-3. Enter the following command into the console to install the dependencies:
+3. Open a bash console and enter the following command to install the dependencies:
 
 ```bash
 	>>> pip install --user praw google-api-python-client yweather

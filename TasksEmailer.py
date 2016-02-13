@@ -17,7 +17,7 @@ from oauth2client import tools
 LOCATION = 'Chapel Hill, NC'
 
 # Put the tasks you don't want to see in the email to this list
-# Or make it an empty list if you want the email to have all your events
+# Or make it an empty list if you want the email to show of all your events
 BLACKLIST = ['INLS 512', 'COMP 401', 'INLS 490', 'COMP 283', 'PHIL 698']
 
 try:
