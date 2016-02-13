@@ -31,7 +31,7 @@ SCOPES = ('https://www.googleapis.com/auth/tasks.readonly  '
           'https://mail.google.com/ '
           'https://www.googleapis.com/auth/calendar.readonly')
 CLIENT_SECRET_FILE = 'client_secret.json'
-APPLICATION_NAME = 'GTasks Emailer'
+APPLICATION_NAME = 'TasksEmailer'
 
 
 def get_credentials():
@@ -50,7 +50,7 @@ def get_credentials():
     if not os.path.exists(credential_dir):
         os.makedirs(credential_dir)
 
-    credential_path = os.path.join(credential_dir, 'gtasks-emailer.json')
+    credential_path = os.path.join(credential_dir, 'tasksemailer.json')
 
     store = oauth2client.file.Storage(credential_path)
     credentials = store.get()

@@ -1,4 +1,4 @@
-Tasks Emailer
+GTasks-Emailer
 =============
 About
 -----
@@ -9,7 +9,7 @@ To make it a little less of a chore to go through my tasks right when I wake up 
 
 I might try and convert this into a webapp in the future but for now it is a standalone script that requires a little more effort to set up.
 
-Currently I have the script run on a schedule using pythonanywhere.com because my computer doesn't run 24/7 so I'm going to give instuctions on how to get that set up below. You could also use another service or your own computer to run the script on a schedule but you might have to change a couple things.
+Currently I have the script run on a schedule using http://pythonanywhere.com because my computer isn't on 24/7 so I'm going to give instuctions on how to get that set up below. You could also use another service or your own computer to run the script on a schedule but you might have to change a few things about the setup.
 
 Setup
 --------
