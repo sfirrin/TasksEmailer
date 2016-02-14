@@ -52,15 +52,15 @@ PythonAnywhere Setup
 
 3. Open a bash console and enter the following command to install the dependencies:
 
-```bash
-	>>> pip install --user praw google-api-python-client yweather
-```
+  ```bash
+	  >>> pip install --user praw google-api-python-client yweather
+  ```
 
 4. Enter this command into the console to authorize the script to use your Google account
 
-```bash
-	>>> python TasksEmailer.py --noauth_local_webserver
-```
+	```bash
+		>>> python TasksEmailer.py --noauth_local_webserver
+	```
 
 5. Copy the link, paste it into a new browser tab's address box, and click 'Allow'
 
